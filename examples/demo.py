@@ -37,6 +37,7 @@ receiver_delta_deg = 5
 receiver_radius = 5
 receiverPoints = pf.samplings.sph_equal_angle(
     receiver_delta_deg, receiver_radius)
+receiverPoints.weights = pf.samplings.calculate_sph_voronoi_weights(receiverPoints)
 receiverPoints = receiverPoints[receiverPoints.get_sph()[..., 1] < np.pi/2]
 receiverPoints.show()
 plt.show()
@@ -48,6 +49,8 @@ source_delta_deg = 30
 source_radius = 10
 sourcePoints = pf.samplings.sph_equal_angle(
     source_delta_deg, source_radius)
+sourcePoints.weights = pf.samplings.calculate_sph_voronoi_weights(sourcePoints)
+
 sourcePoints = sourcePoints[sourcePoints.get_sph()[..., 1] < np.pi/2]
 sourcePoints.show()
 plt.show()

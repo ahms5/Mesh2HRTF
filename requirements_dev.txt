@@ -17,6 +17,5 @@ autodocsumm
 insipid-sphinx-theme
 pyfar>=0.5.0
 sofar
-git+https://github.com/pyfar/imkar.git@9770ad090196b73f3202a187784470d3f9f9e995
 trimesh
 bumpversion

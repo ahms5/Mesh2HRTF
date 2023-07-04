@@ -1,5 +1,4 @@
 import pyfar as pf
-import imkar as ik
 import numpy as np
 import sofar as sf
 import os
@@ -29,10 +28,10 @@ def calculate_scattering(folder):
     data_ref, source_coords_ref_, receiver_coords_ref_ = _reshape_data(
         data_ref, source_coords_ref, receiver_coords_ref)
 
-    s = ik.scattering.coefficient.freefield(
-        data, data_ref, receiver_coords_ref_)
+    s = m2s.utils.coefficient.scattering(
+        data, data_ref, receiver_coords_ref_.weights)
 
-    s_rand = ik.scattering.coefficient.random_incidence(
+    s_rand = m2s.utils.coefficient.paris_formula(
         s, source_coords_ref_)
 
     s = _revert_reshape_data(s, source_coordinates, source_coords_ref_)
@@ -93,10 +92,10 @@ def calculate_diffusion(folder):
     data, source_coords_, receiver_coords_ = _reshape_data(
         data, source_coordinates, receiver_coordinates)
 
-    diffusion_coefficient = ik.diffusion.coefficient.freefield(
-        data, receiver_coords_)
+    diffusion_coefficient = m2s.utils.coefficient.diffusion(
+        data, receiver_coords_.weights)
 
-    random_diffusion_coefficient = ik.scattering.coefficient.random_incidence(
+    random_diffusion_coefficient = m2s.utils.coefficient.paris_formula(
         diffusion_coefficient, source_coords_)
 
     diffusion_coefficient = _revert_reshape_data(

@@ -237,9 +237,11 @@ def test_write_scattering_parameter(source_coords_10deg, tmpdir):
         "source_type": 'Point source',
         "sources_num": len(source_list),
         "sources": source_list,
+        "sources_weights": source_coords_10deg.weights,
         # Receiver definition
         "receivers_num": len(receiver_list),
         "receivers": receiver_list,
+        "receivers_weights": receiverPoints.weights,
     }
     npt.assert_array_almost_equal(paras['receivers'], parameters['receivers'])
     paras['receivers'] = parameters['receivers']
@@ -338,9 +340,11 @@ def test_write_scattering_parameter_one_source(tmpdir):
         "source_type": 'Point source',
         "sources_num": len(source_list),
         "sources": source_list,
+        "sources_weights": source_coords.weights,
         # Receiver definition
         "receivers_num": len(receiver_list),
         "receivers": receiver_list,
+        "receivers_weights": receiverPoints.weights,
     }
     npt.assert_array_almost_equal(paras['receivers'], parameters['receivers'])
     paras['receivers'] = parameters['receivers']

@@ -32,15 +32,19 @@ def write_scattering_project(
         speed_of_sound='346.18',
         density_of_medium='1.1839'):
 
+    if receiver_coords.weights is None:
+        raise ValueError("receiver_coords need to contain weights.")
+    if source_coords.weights is None:
+        raise ValueError("source_coords need to contain weights.")
+
     if not os.path.isdir(project_path):
         os.mkdir(project_path)
 
-    frequencyStepSize = 0
     title = 'scattering coefficient Sample'
     method = 'ML-FMM BEM'
     project_path_sample = os.path.join(project_path, 'sample')
     write_project(
-        project_path_sample, title, frequencies, frequencyStepSize,
+        project_path_sample, title, frequencies,
         sample_path,
         receiver_coords, source_coords, sourceType='Point source',
         method=method, materialSearchPaths=None,
@@ -53,7 +57,7 @@ def write_scattering_project(
     project_path_ref = os.path.join(project_path, 'reference')
 
     write_project(
-        project_path_ref, title, frequencies, frequencyStepSize,
+        project_path_ref, title, frequencies,
         reference_path, receiver_coords, sourcePositions_ref,
         sourceType='Point source',
         method=method,  materialSearchPaths=None,
@@ -71,8 +75,8 @@ def write_scattering_project(
         "mesh2scattering_version": m2s.__version__,
         "bem_version": 'ML-FMM BEM',
         # Constants
-        "speed_of_sound": float(346.18),
-        "density_of_medium": float(1.1839),
+        "speed_of_sound": float(speed_of_sound),
+        "density_of_medium": float(density_of_medium),
         # Sample Information, post processing
         "structural_wavelength": structural_wavelength,
         "model_scale": model_scale,
@@ -89,17 +93,18 @@ def write_scattering_project(
         "source_type": 'Point source',
         "sources_num": len(source_list),
         "sources": source_list,
+        "sources_weights": list(source_coords.weights),
         # Receiver definition
         "receivers_num": len(receiver_list),
         "receivers": receiver_list,
-
+        "receivers_weights": list(receiver_coords.weights),
     }
     with open(os.path.join(project_path, "parameters.json"), 'w') as file:
         json.dump(parameters, file, indent=4)
 
 
 def write_project(
-        project_path, title, frequencies, frequencyStepSize, mesh_path,
+        project_path, title, frequencies, mesh_path,
         evaluationPoints, sourcePositions,
         sourceType='Point source', method='ML-FMM BEM',
         materialSearchPaths=None, speedOfSound='346.18',

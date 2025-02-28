@@ -24,8 +24,10 @@ functionality and [read the docs](https://mesh2scattering.readthedocs.io/en/late
 
 Use pip to install mesh2scattering
 
-    pip install mesh2scattering
-    pip install git+https://github.com/pyfar/imkar.git@9770ad090196b73f3202a187784470d3f9f9e995
+```bash
+pip install mesh2scattering
+pip install git+https://github.com/pyfar/imkar.git@9770ad090196b73f3202a187784470d3f9f9e995
+```
 
 (Requires Python 3.8 or higher)
 
@@ -60,7 +62,6 @@ sudo cp NumCalc /usr/local/bin/
 Now NumCalc can be used by running NumCalc (don't do this yet).
 
 ### for MacOS
-
 
 Install the C++ build essentials by installing ``xcode``
 Go into the ``numcalc/src`` directory by running

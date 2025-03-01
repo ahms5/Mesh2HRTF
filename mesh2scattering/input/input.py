@@ -8,99 +8,95 @@ from scipy.spatial import Delaunay, ConvexHull
 import trimesh
 import json
 import datetime
-from mesh2scattering import utils
-import shutil
 import mesh2scattering as m2s
 from packaging import version
 
 
-def create_source_positions(phi_deg, theta_deg, radius):
-    """
-    Create source positions on a sphere.
-    """
-    theta_rad = theta_deg * np.pi / 180.
-    phi_rad = phi_deg * np.pi / 180.
-    theta, phi = np.meshgrid(theta_rad, phi_rad)
-    theta = theta.flatten()
-    phi = phi.flatten()
-    # create coordinates
-    x = radius * np.sin(theta) * np.cos(phi)
-    y = radius * np.sin(theta) * np.sin(phi)
-    z = radius * np.cos(theta)
-    return pf.Coordinates(x, y, z)
-
-
 def write_scattering_project(
-        project_path, frequencies, sample_path, reference_path,
+        project_path, frequencies, sample_path,
         receiver_coords, source_coords,
-        structural_wavelength=0, model_scale=1, symmetry_azimuth=[90, 180],
+        sourceType='Point source',
+        structural_wavelength_x=0, structural_wavelength_y=0,
+        model_scale=1, symmetry_azimuth=[90, 180],
         symmetry_rotational=False, sample_diameter=0.8,
         speed_of_sound='346.18',
-        density_of_medium='1.1839'):
-    """Write scattering project for Mesh2HRTF."""
+        density_of_medium='1.1839',
+        sample_offset_z=0):
 
     if not os.path.isdir(project_path):
         os.mkdir(project_path)
 
+    frequencyStepSize = 0
     title = 'scattering coefficient Sample'
     method = 'ML-FMM BEM'
     project_path_sample = os.path.join(project_path, 'sample')
     write_project(
-        project_path_sample, title, frequencies,
+        project_path_sample, title, frequencies, frequencyStepSize,
         sample_path,
-        receiver_coords, source_coords, sourceType='Point source',
+        receiver_coords, source_coords, sourceType,
         method=method, materialSearchPaths=None,
         speedOfSound=speed_of_sound,
-        densityOfMedium=density_of_medium, materials=None)
+        densityOfMedium=density_of_medium, materials=None, 
+        sample_offset_z=sample_offset_z)
 
-    title = 'scattering coefficient Reference'
-    sourcePositions_ref = source_coords[
-        np.abs(source_coords.get_sph()[..., 0]) < 1e-14]
-    project_path_ref = os.path.join(project_path, 'reference')
+    source_list = [list(i) for i in list(source_coords.cartesian)]
+    if source_coords.weights is None:
+        raise ValueError('sources have to contain weights.')
+    source_weights = list(source_coords.weights)
 
-    write_project(
-        project_path_ref, title, frequencies,
-        reference_path, receiver_coords, sourcePositions_ref,
-        sourceType='Point source',
-        method=method,  materialSearchPaths=None,
-        speedOfSound=speed_of_sound,
-        densityOfMedium=density_of_medium, materials=None)
+    if isinstance(receiver_coords, pf.Coordinates):
+        if receiver_coords.weights is None:
+            raise ValueError('receivers have to contain weights.')
+        receiver_list = [list(i) for i in list(receiver_coords.get_cart())]
+        receiver_weights = list(receiver_coords.weights)
+    else:
+        for coord in receiver_coords:
+            if coord.weights is None:
+                raise ValueError('all receivers have to contain weights.')
+        receiver_list = [
+            r.cartesian.flatten().tolist() for rs in receiver_coords for r in rs]
+        receiver_weights = [r.weights for rs in receiver_coords for r in rs]
 
-    source_list = [list(i) for i in list(source_coords.get_cart())]
-    receiver_list = [list(i) for i in list(receiver_coords.get_cart())]
     title = 'scattering pattern'
     frequencies = np.array(frequencies, dtype=float)
     parameters = {
         # project Info
-        "project_title": 'scattering pattern',
-        "mesh2scattering_path": utils.program_root(),
-        "mesh2scattering_version": m2s.__version__,
-        "bem_version": 'ML-FMM BEM',
+        'project_title': 'scattering pattern',
+        'mesh2scattering_path': m2s.utils.program_root(),
+        'mesh2scattering_version': m2s.__version__,
+        'bem_version': 'ML-FMM BEM',
         # Constants
-        "speed_of_sound": float(346.18),
-        "density_of_medium": float(1.1839),
+        'speed_of_sound': float(speed_of_sound),
+        'density_of_medium': float(density_of_medium),
         # Sample Information, post processing
-        "structural_wavelength": structural_wavelength,
-        "model_scale": model_scale,
-        "sample_diameter": sample_diameter,
+        'structural_wavelength': structural_wavelength_x,
+        'structural_wavelength_x': structural_wavelength_x,
+        'structural_wavelength_y': structural_wavelength_y,
+        'model_scale': model_scale,
+        'sample_diameter': sample_diameter,
         # symmetry information
-        "symmetry_azimuth": symmetry_azimuth,
-        "symmetry_rotational": symmetry_rotational,
+        'symmetry_azimuth': symmetry_azimuth,
+        'symmetry_rotational': symmetry_rotational,
         # frequencies
-        "num_frequencies": len(frequencies),
-        "min_frequency": frequencies[0],
-        "max_frequency": frequencies[-1],
-        "frequencies": list(frequencies),
+        'num_frequencies': len(frequencies),
+        'min_frequency': frequencies[0],
+        'max_frequency': frequencies[-1],
+        'frequencies': list(frequencies),
+        'min_lbyl': lbyls[0],
+        'max_lbyl': lbyls[-1],
+        'lbyls': list(lbyls),
         # Source definition
-        "source_type": 'Point source',
-        "sources_num": len(source_list),
-        "sources": source_list,
+        'source_type': sourceType,
+        'sources_num': len(source_list),
+        'sources': source_list,
+        'sources_weights': source_weights,
         # Receiver definition
-        "receivers_num": len(receiver_list),
-        "receivers": receiver_list,
+        'receivers_num': len(receiver_list),
+        'receivers': receiver_list,
+        'receiver_weights': receiver_weights,
 
     }
-    with open(os.path.join(project_path, "parameters.json"), 'w') as file:
+    with open(os.path.join(project_path, 'parameters.json'), 'w') as file:
         json.dump(parameters, file, indent=4)
 
 
@@ -109,18 +105,15 @@ def write_project(
         evaluationPoints, sourcePositions,
         sourceType='Point source', method='ML-FMM BEM',
         materialSearchPaths=None, speedOfSound='346.18',
-        densityOfMedium='1.1839', materials=None):
-    """
-    Write a Mesh2HRTF project.
-    """
+        densityOfMedium='1.1839', materials=None, sample_offset_z=0):
 
-    programPath = utils.program_root()
-    defaultPath = os.path.join(
-        programPath, 'Mesh2Input', 'Materials', 'Data')
-    if materialSearchPaths is None:
-        materialSearchPaths = defaultPath
-    else:
-        materialSearchPaths += f";  {defaultPath}"
+    # programPath = utils.program_root()
+    # defaultPath = os.path.join(
+    #     programPath, 'Mesh2Input', 'Materials', 'Data')
+    # if materialSearchPaths is None:
+    #     materialSearchPaths = defaultPath
+    # else:
+    #     materialSearchPaths += f";  {defaultPath}"
 
     # create folders
     if not os.path.isdir(project_path):
@@ -132,25 +125,45 @@ def write_project(
     if not os.path.isdir(os.path.join(project_path, 'EvaluationGrids')):
         os.mkdir(os.path.join(project_path, 'EvaluationGrids'))
 
-    # write stl file
-    mesh = trimesh.load(mesh_path)
-    path = os.path.join(project_path, 'ObjectMeshes', 'Reference')
-    write_mesh(mesh.vertices, mesh.faces, path, start=0)
-
     # copy stl file
     mesh = trimesh.load(mesh_path)
-    path = shutil.copyfile(mesh_path, os.path.join(
+    mesh.vertices[:, 2] += sample_offset_z
+    print(
+        f'mesh x min {np.min(mesh.vertices[:, 0]):.5f} '
+        f'max {np.max(mesh.vertices[:, 0]):.5f}')
+    print(
+        f'mesh y min {np.min(mesh.vertices[:, 1]):.5f} '
+        f'max {np.max(mesh.vertices[:, 1]):.5f}')
+    print(
+        f'mesh z min {np.min(mesh.vertices[:, 2]):.5f} '
+        f'max {np.max(mesh.vertices[:, 2]):.5f}')
+    path = os.path.join(project_path, 'ObjectMeshes', 'Reference')
+    write_mesh(mesh.vertices, mesh.faces, path, start=0)
+    mesh.export(os.path.join(
         project_path, 'ObjectMeshes', mesh_path.split(os.sep)[-1]))
 
     # write evaluation grid
-    write_evaluation_grid(
-        evaluationPoints,
-        os.path.join(project_path, 'EvaluationGrids', 'grid'))
+    grids = []
+    if isinstance(evaluationPoints, list):
+        start = 200000
+        for i in range(len(evaluationPoints)):
+            write_evaluation_grid(
+                evaluationPoints[i],
+                os.path.join(project_path, 'EvaluationGrids', f'grid_{i}'),
+                start=start)
+            start+= evaluationPoints[i].csize
+            grids.append(f'grid_{i}')
+
+    else:
+        write_evaluation_grid(
+            evaluationPoints,
+            os.path.join(project_path, 'EvaluationGrids', 'grid'))
+        grids.append('grid')
 
     # Write NumCalc input files for all sources (NC.inp) ----------------------
     _write_nc_inp(
         project_path, version.parse(m2s.__version__), title, speedOfSound,
-        densityOfMedium, frequencies, ['grid'], materials, method, sourceType,
+        densityOfMedium, frequencies, grids, materials, method, sourceType,
         sourcePositions, len(mesh.faces), len(mesh.vertices))
 
 
@@ -614,7 +627,7 @@ def write_material(filename, kind, frequencies, data, comment=None):
 
 
 def write_evaluation_grid(
-        points, name, start=200000, discard=None):
+        points, folder_path, start=200000, discard=None):
     """
     Write evaluation grid for use in Mesh2HRTF.
 
@@ -623,12 +636,12 @@ def write_evaluation_grid(
 
     Parameters
     ----------
-    points : pyfar Coordinates, numpy array
-        pyfar Coordinates object or 2D numpy array containing the cartesian
+    points : pyfar.Coordinates
+        pyfar Coordinates object containing the cartesian
         points of the evaluation grid in meter. The array must be of shape
         (N, 3) with N > 2.
-    name : str
-        Name of the folder under which the evaluation grid is saved. If the
+    folder_path : str
+        folder path under which the evaluation grid is saved. If the
         folder does not exist, it is created.
     start : int, optional
         The nodes and elements of the evaluation grid are numbered and the
@@ -659,7 +672,11 @@ def write_evaluation_grid(
     """
 
     if isinstance(points, pf.Coordinates):
-        points = points.get_cart()
+        if points.cdim != 1:
+            raise ValueError("cdim of pyfar.Coordinates must be 1.")
+        points = points.cartesian
+    else:
+        raise ValueError("points must be a pyfar.Coordinates object.")
 
     if points.ndim != 2 or points.shape[0] < 3 \
             or points.shape[1] != 3:
@@ -683,8 +700,8 @@ def write_evaluation_grid(
         tri = Delaunay(points[:, mask])
 
     # check output directory
-    if not os.path.isdir(name):
-        os.mkdir(name)
+    if not os.path.isdir(folder_path):
+        os.mkdir(folder_path)
 
     # write nodes
     N = int(points.shape[0])
@@ -697,7 +714,7 @@ def write_evaluation_grid(
                   f"{points[nn, 1]} "
                   f"{points[nn, 2]}\n")
 
-    with open(os.path.join(name, "Nodes.txt"), "w") as f_id:
+    with open(os.path.join(folder_path, "Nodes.txt"), "w") as f_id:
         f_id.write(nodes)
 
     # write elements
@@ -710,49 +727,5 @@ def write_evaluation_grid(
                   f"{tri.simplices[nn, 2] + start} "
                   "2 0 1\n")
 
-    with open(os.path.join(name, "Elements.txt"), "w") as f_id:
+    with open(os.path.join(folder_path, "Elements.txt"), "w") as f_id:
         f_id.write(elems)
-
-
-def read_evaluation_grid(name):
-    """
-    Read Mesh2HRTF evaluation grid.
-
-    Parameters
-    ----------
-    name : str
-        Name of the folder containing the nodes of the evaluation grid in
-        Nodes.txt
-    show : bool, optional
-        If ``True`` the points of the evaluation grid are plotted. The default
-        is ``False``.
-
-    Returns
-    -------
-    coordinates : pyfar Coordinates
-        The points of the evaluation grid as a pyfar Coordinates object
-    """
-
-    # check if the grid exists
-    if not os.path.isfile(os.path.join(name, "Nodes.txt")):
-        raise ValueError(f"{os.path.join(name, 'Nodes.txt')} does not exist")
-
-    # read the nodes
-    with open(os.path.join(name, "Nodes.txt"), "r") as f_id:
-        nodes = f_id.readlines()
-
-    # get number of nodes
-    N = int(nodes[0].strip())
-    points = np.zeros((N, 3))
-
-    # get points (first entry is node number)
-    for nn in range(N):
-        node = nodes[nn+1].strip().split(" ")
-        points[nn, 0] = float(node[1])
-        points[nn, 1] = float(node[2])
-        points[nn, 2] = float(node[3])
-
-    # make coordinates object
-    coordinates = pf.Coordinates(points[:, 0], points[:, 1], points[:, 2])
-
-    return coordinates

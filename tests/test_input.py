@@ -15,6 +15,48 @@ def test_import():
     assert input
 
 
+@pytest.mark.parametrize("start", [2000, 200024])
+@pytest.mark.parametrize("discard", ['x', 'y', 'z', None])
+def test_write_evaluation_grid(discard, start, tmpdir):
+    x = np.arange(0, 50, 10)
+    y = x
+    xx, yy = np.meshgrid(x, y)
+    if discard == 'z':
+        points = pf.Coordinates(xx.flatten(), yy.flatten(), 0)
+    elif discard == 'y':
+        points = pf.Coordinates(xx.flatten(), 0, yy.flatten())
+    elif discard == 'x':
+        points = pf.Coordinates(0, xx.flatten(), yy.flatten())
+    elif discard is None:
+        points = pf.Coordinates.from_spherical_elevation(
+            xx.flatten()/180*np.pi, yy.flatten()/180*np.pi, 1)
+
+    filename = os.path.join(tmpdir, "test_evaluation_grid")
+
+    # write data
+    m2s.input.write_evaluation_grid(
+        points, filename, start=start, discard=discard)
+
+    # read and check Nodes
+    with open(filename + "/Nodes.txt", "r") as f_id:
+        file = f_id.readlines()
+    file = "".join(file)
+
+    x = points.x
+    y = points.y
+    z = points.z
+    first_row = f"{points.csize}\n"
+    second_row = f"{start} {x[0]} {y[0]} {z[0]}\n"
+    assert file.startswith(first_row+second_row)
+    assert file.endswith(
+        f"\n{start+points.csize-1} {x[-1]} {y[-1]} {z[-1]}\n")
+
+    # read and check Elements
+    with open(filename + "/Elements.txt", "r") as f_id:
+        file = f_id.readlines()
+    assert len(file) == int(file[0]) + 1
+
+
 def test_write_mesh(tmpdir):
     path = os.path.join(
         m2s.utils.program_root(), '..', 'tests', 'references', 'Mesh')
@@ -146,29 +188,6 @@ def test_write_material_comment():
     assert file[1] == "#\n"
     assert file[2] == "# Keyword to define the boundary condition:\n"
 
-
-def test_create_source_positions():
-    source_azimuth_deg = np.arange(0, 95, 10)
-    source_colatitude_deg = np.arange(10, 85, 10)
-    source_radius = 10
-
-    sourcePositions = m2s.input.create_source_positions(
-        source_azimuth_deg, source_colatitude_deg, source_radius)
-
-    npt.assert_almost_equal(
-        np.max(sourcePositions.get_sph()[..., 0]),
-        np.max(source_azimuth_deg)/180*np.pi)
-    npt.assert_almost_equal(
-        np.min(sourcePositions.get_sph()[..., 0]),
-        np.min(source_azimuth_deg)/180*np.pi)
-    npt.assert_almost_equal(
-        np.max(sourcePositions.get_sph()[..., 1]),
-        np.max(source_colatitude_deg)/180*np.pi)
-    npt.assert_almost_equal(
-        np.min(sourcePositions.get_sph()[..., 1]),
-        np.min(source_colatitude_deg)/180*np.pi)
-    npt.assert_almost_equal(
-        sourcePositions.get_sph()[..., 2], source_radius)
 
 
 def test_write_scattering_parameter(tmpdir):

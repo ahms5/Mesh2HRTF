@@ -161,7 +161,7 @@ void NC_ReadBasicParametersA
     // version number
     nterms = 0;
     while(!nterms){nterms = NC_GetLine(inputFile_, chinpline, chterms);}
-    if(chterms[0].compare("Mesh2HRTF")) NC_Error_Exit_0(NCout, "Key word Mesh2HRTF expected!");
+    if(chterms[0].compare("mesh2scattering")) NC_Error_Exit_0(NCout, "Key word mesh2scattering expected!");
 
     j1 = 0;
     //    for(j=0; j<(int)chterms[0].length(); j++) versionNumber_[j1++] = chterms[0][j];

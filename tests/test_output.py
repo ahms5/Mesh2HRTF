@@ -19,11 +19,15 @@ def test_write_pattern(project_name, tmpdir):
             base_dir, 'resources', 'output', project_name),
         test_dir)
 
-    m2s.output.write_pressure(test_dir)
+    written_files = m2s.output.write_pressure(test_dir)
 
-    sofa = sf.read_sofa(
-        os.path.join(
-            test_dir, '..', f'{project_name}_gaussian_63.pressure.sofa'))
+    assert len(written_files) == 1
+    assert os.path.isfile(written_files[0])
+    assert os.path.join(
+            test_dir, '..',
+            f'{project_name}_gaussian_63.pressure.sofa') in written_files
+
+    sofa = sf.read_sofa(written_files[0])
     pressure, sources, receivers = pf.io.convert_sofa(sofa)
 
     # check if the sofa file is correct

@@ -33,6 +33,12 @@ def write_pressure(folder):
     folder : str, optional
         The path of the NumCalc project folder, i.e., the folder containing
         the subfolders EvaluationsGrids, NumCalc, and ObjectMeshes.
+
+    Returns
+    -------
+    written_files : list of str
+        List of the full path of the written SOFA files.
+
     """
     if not os.path.exists(folder):
         raise ValueError(
@@ -49,6 +55,7 @@ def write_pressure(folder):
     evaluationGrids, params = _read_numcalc(
         folder)
 
+    written_files = []
     # process BEM data for writing HRTFs and HRIRs to SOFA files
     for i_grid, grid in enumerate(evaluationGrids):
 
@@ -96,6 +103,8 @@ def write_pressure(folder):
             f'{params["project_title"]}_{grid}.pressure.sofa')
         # write scattered sound pressure to SOFA file
         sf.write_sofa(file_path, sofa)
+        written_files.append(file_path)
+    return written_files
 
 
 def _create_pressure_sofa(
